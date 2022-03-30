@@ -1,0 +1,351 @@
+> book_authors (bookid references book(bookid) on delete set null, author_name
+varchar(10));
+> 
+
+> create table publisher(name varchar(10) primary key, address varchar(20), phone number(10));
+Table created.
+> 
+
+> 
+> 
+> 
+> create table book(bookid int primary key, title varchar(10),
+> pub_name references publisher(name) on delete set null, pub_year number(4));
+> 
+> > create table book_lending(bookid references book(bookid) on delete set null,
+> programme_id references library_branch(programme_id) on delete set null,
+> card_no int, date_out date, due_date date, **primary key(bookid, programme_id, card_no));**
+> > 
+> 
+> Insert data: 
+> 
+> > insert into book_authors values('&bookid','&author_name
+> 
+
+- Program 1: Library
+    
+    Queries:  
+    
+    - Retrieve details of all books in the library – id, title, name of publisher, authors, number of
+    copies in each branch, etc.
+        
+        
+        ```sql
+        select a.author_name, b.bookid, b.title, b.pub_name, bc.no_of_copies as branch_copies
+        2 from book b, book_authors a, book_copies bc
+        3 where a.bookid=bc.bookid and a.bookid=b.bookid and
+        4 bc.programme_id in (select programme_id from library_branch
+        5 group by progeamme_id);
+        ```
+        
+    - Get the particulars of borrowers who have borrowed more than 3 books, but from Jan 2017 to Jun 2017.
+        
+        ```sql
+        select card_no, count(*)
+        from book_lending
+        w**here date_out between '01-jan-2017' and '30-sep-2017'**
+        group by card_no
+        having count(*) >=1;
+        ```
+        
+    - Delete a book in BOOK table. Update the contents of other tables to reflect this data
+    manipulation operation
+        
+        ```sql
+        delete from book where bookid=1004;
+        ```
+        
+        ```sql
+        update book_lending set bookid=1002 where bookid=1004;
+        ```
+        
+    - Partition the BOOK table based on year of publication. Demonstrate its working with a
+    simple query.
+        
+        
+        ```sql
+        create table book_part (bookid int, title varchar(10),
+        pub_name varchar(10),pub_year int) PARTITION BY RANGE (pub_year)
+        (PARTITION p1 VALUES LESS THAN (1990),
+        PARTITION p2 VALUES LESS THAN (2000),
+        PARTITION p3 VALUES Less THAN (2010)
+        );
+        ```
+        
+    - Create a view of all books and its number of copies that are currently available in the Library.
+        
+        ```sql
+        create view Display_books as select b.bookid,b.title, bc.no_of_copies,bc.progeamme_id
+         2 from book b,book_copies bc
+         3 where b.bookid=bc.bookid;
+        ```
+        
+- program 2: Order database
+    
+    Queries:
+    
+    - Count the customers with grades above Bangalore’s average.
+        
+        ```sql
+        select count(*),GRADES from customer
+        2 where grades > ( select avg(grades)from customer
+        3 where city='bangalore') group by GRADES;
+        ```
+        
+    - . Find the name and numbers of all salesman who had more than one customer.
+        
+        ```sql
+        select salesman_id,sname,count(*)
+        from customer,salesman
+        where sales_id=salesman_id
+        group by salesman_id,sname
+        having count(*)>2;
+        ```
+        
+        ```sql
+        
+        ```
+        
+    - List all the salesman and indicate those who have and don’t have customers in their cities
+    (Use UNION operation.)
+        
+        ```sql
+        ( select s.sname
+        from salesman s, customer c
+        where s.city=c.city and
+        sales_id=salesman_id )
+        UNION ( select s.sname
+        from salesman s, customer c
+        where s.city!=c.city and
+        sales_id=salesman_id); 
+        ```
+        
+    - Create a view that finds the salesman who has the customer with the highest order of a day.
+        
+        ```sql
+        select s.SALESMAN_ID,s.sname, s.city, count(*) as highest_orders
+        2 from customer c, salesman s
+        3 where s.SALESMAN_ID=c.SALES_ID
+        4 group by s.SALESMAN_ID,s.sname, s.city
+        5 having count(*) = ( select max(count(sales_id)) from orders
+        6 where ord_date='&ord_date'
+        7 group by sales_id);
+        ```
+        
+    - Demonstrate the DELETE operation by removing salesman with id 1000. All his orders must
+    also be deleted.
+        
+        ```sql
+        delete from salesman where SALESMAN_ID=1000;
+        ```
+        
+- Program 3: Movie database
+    
+    Queries: 
+    
+    - List the titles of all movies directed by ‘Hitchcock’.
+        
+        ```sql
+        select m.mov_title
+        2 from movies m, director d
+        3 where m.dir_id=d.dir_id and dir_name='hitchcock';
+        ```
+        
+    - 2. Find the movie names where one or more actors acted in two or more movies.
+        
+        ```sql
+        select m.mov_title
+        2 from movies m where exists (select mc.mov_id, count(*)
+        3 from movie_cast mc
+        4 where m.mov_id=mc.mov_id and exists (select act_id, count(*)
+        5 from movie_cast
+        6 group by act_id
+        7 having count(*) >1 )
+        8 group by mov_id
+        9 having count(*)>2);
+        ```
+        
+    - List all actors who acted in a movie before 2000 and also in a movie after 2015 (use JOIN
+    operation).
+        
+        ```sql
+        (select a.act_name from actor a, movie_cast mc,movies m
+        2 where a.act_id=mc.act_id and m.mov_id=mc.mov_id and mov_year<2000)
+        3 intersect
+        4 (select a.act_name from actor a, movie_cast mc,movies m
+        5 where a.act_id=mc.act_id and m.mov_id=mc.mov_id and mov_year>2015);
+        ```
+        
+    - Find the title of movies and number of stars for each movie that has at least one rating and
+    find the highest number of stars that movie received. Sort the result by movie title
+        
+        ```sql
+        select mov_title,REV_STARS as highest_rating
+        2 from movies m,rating r
+        3 where m.mov_id=r.mov_id and rev_stars in
+        4 (select max(REV_STARS) from rating)
+        5 group by mov_title,REV_STARS;
+        ```
+        
+        > select mov_title,rev_stars
+        2 from movies m,rating r
+        3 where m.mov_id=r.mov_id and rev_stars>1
+        4 order by mov_title;
+        > 
+    - 5 . Update rating of all movies directed by ‘Steven Spielberg’ to 5.
+        
+        ```sql
+        update rating set rev_stars=5 where mov_id in( select mov_id from movies natural join
+        director
+        2 where dir_name='stephen');
+        ```
+        
+- Problem 4: College database
+    - . List all the student details studying in the fourth semester ‘C’ section.
+        
+        ```sql
+        select s.usn,s.sname
+         2 from student s,semsec sc,classes c
+         3 where sc.ssid=c.ssid and s.usn=c.usn and sc.sem=5 and sc.sec='C';
+        ```
+        
+    - . Compute the total number of male and female students in each semester and in each section.
+        
+        ```sql
+        select sc.ssid,sem,sec,gender,count(*)
+         2 from semsec sc,classes c, student s
+         3 where sc.ssid=c.ssid and s.usn=c.usn
+         4 group by sc.ssid,sem,sec,gender;
+        ```
+        
+    - 3Create a view of Test1 marks of student USN ‘1BI15CS101’ in all subjects
+        
+        ```sql
+        create view stud_iamarks as select usn,sname,subcode, test1
+         2 from student natural join iamarks
+         3 where usn='&usn';
+        Enter value for usn: 1005
+        ```
+        
+    - Calculate the FinalIA (average of best two test marks) and update the corresponding table for all students
+        
+        ```sql
+        alter table iamarks drop column finalia;
+        alter table iamarks add finalia int;
+        update iamarks set finalia= round((test1+test2+test3-least(test1,test2,test3))/2);
+        CREATE OR REPLACE PROCEDURE AVGMARKS
+         2 IS
+         3 CURSOR C_IAMARKS IS
+         4 SELECT GREATEST(TEST1,TEST2) AS A, GREATEST(TEST1,TEST3) AS B, 
+        GREATEST(TEST3,TEST2) AS C
+         5 FROM IAMARKS
+         6 WHERE FINALIA IS NULL
+         7 FOR UPDATE;
+         8 C_A NUMBER;
+         9 C_B NUMBER;
+        C_C NUMBER;
+         11 C_SM NUMBER;
+         12 C_AV NUMBER;
+         13 BEGIN
+         14 OPEN C_IAMARKS;
+         15 LOOP
+         16 FETCH C_IAMARKS INTO C_A, C_B, C_C;
+         17 EXIT WHEN C_IAMARKS%NOTFOUND;
+         18 --DBMS_OUTPUT.PUT_LINE(C_A || ' ' || C_B || ' ' || C_C);
+         19 IF (C_A >= C_B AND C_B >= C_C) THEN
+         20 C_SM:=C_A+C_B;
+         21 ELSIF (C_A >= C_B AND C_C >= C_B) THEN
+        2 C_SM:=C_A+C_C;
+         23 ELSIF (C_B >= C_A AND C_A >= C_C) THEN
+         24 C_SM:=C_B+C_A;
+         25 ELSIF (C_B >= C_A AND C_C >= C_A) THEN
+         26 C_SM:=C_B+C_C;
+         27 ELSIF(C_C >= C_A AND C_A >= C_B) THEN
+         28 C_SM:=C_C+C_A;
+         29 ELSIF(C_C >= C_A AND C_B >= C_A)THEN
+         30 C_SM:=C_C+C_B;
+         31 END IF;
+         32 C_AV:=C_SM/2;
+         33 --DBMS_OUTPUT.PUT_LINE('SUM = '||C_SM);
+         34 --DBMS_OUTPUT.PUT_LINE('AVERAGE = '||C_AV);
+        35 UPDATE IAMARKS SET FINALIA = C_AV WHERE CURRENT OF C_IAMARKS;
+         36 END LOOP;
+         37 CLOSE C_IAMARKS;
+         38 END;
+        ```
+        
+    - Categorize students based on the following criterion: If FinalIA = 17 to 20 then CAT =
+    ‘Outstanding’ If FinalIA = 12 to 16 then CAT = ‘Average’ If FinalIA< 12 then CAT = ‘Weak’ Give these details only for 8th semester A, B, and C section students.
+        
+        ```sql
+        select
+         2 CASE
+         3 WHEN finalia <= 20 and finalia >=17 then 'Outstanding'
+         4 WHEN finalia <= 16 and finalia>= 12 then 'Average'
+         5 else 'Weak'
+         6 end as finalia
+         7 from iamarks;
+        ```
+        
+- Problem 5: Company database
+    - Make a list of all project numbers for projects that involve an employee whose last name is
+    ‘Scott’, either as a worker or as a manager of the department that controls the project.
+        
+        ```sql
+        select pq.pno, pq.pname from project pq where pno in(
+        2 ( select p.pno
+        3 from project p, employee e, workson w
+        4 where w.pno=p.pno and e.ssn=w.ssn and e.ename='scott' )
+        5 union
+        6 ( select p.pno
+        7 from project p, employee e,department d
+        8 where e.ssn=d.mgrssn and p.dno=d.dno and ename='scott' )
+        9 );
+        ```
+        
+    - 2
+        
+        Show the resulting salaries if every employee working on the ‘IoT’ project is given a 10
+        percent raise.
+        
+        ```sql
+        SELECT SALARY*1.1
+        2 FROM EMPLOYEE e, PROJECT p, WORKSON w
+        3 WHERE PNAME='rolls' and e.ssn=w.ssn and p.pno=w.pno;
+        ```
+        
+    - 3
+        1. Find the sum of the salaries of all employees of the ‘Accounts’ department, as well as the maximum salary, the minimum salary, and the average salary in this department
+        
+        ```sql
+        select max(salary),min(salary),avg(salary), sum(salary)
+        2 from employee e, department d
+        3 where e.dno=d.dno and DNAME='accounting';
+        ```
+        
+    - 4
+        
+        Retrieve the name of each employee who works on all the projects controlled by the department
+        number 5 (use NOT EXISTS operator).
+        
+        select e.ename
+        2 from employee e
+        3 where exists (select *
+        4 from workson w,project p
+        5 where p.pno=w.pno and e.ssn=w.ssn and p.dno=2);
+        
+        select e.ename
+        2 from employee e
+        3 where not exists (select *
+        4 from workson w,project p
+        5 where p.pno=w.pno and e.ssn=w.ssn and p.dno=2);
+        
+        ```sql
+        SELECT fname, lname FROM employee
+        WHERE NOT EXISTS
+        (SELECT pnumber FROM project WHERE dnum=5
+        AND pnumber NOT IN
+        (SELECT pno FROM works_on WHERE ssn=essn));
+        ```
+        
+    - 5
